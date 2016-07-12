@@ -1,4 +1,5 @@
 import json
+import logging
 
 import os
 import requests
@@ -6,7 +7,8 @@ import telebot
 from expiringdict import ExpiringDict
 from telebot import types
 
-from .db import get_engine, get_session
+from telegram_association.db import LocationZone
+from .db import get_engine, get_sessionmaker, User
 
 NOMINATIM_URL = 'http://nominatim.openstreetmap.org/'
 REVERSE_NOMINATIM_URL = '{}reverse'.format(NOMINATIM_URL)
@@ -34,6 +36,9 @@ FALSE_CHOICE = 'No'
 
 TEAMS = ['Amarillo', 'Azul', 'Rojo']
 NO_TEAM = 'No lo sé/No tengo'
+
+logging.basicConfig()
+logging.getLogger('sqlalchemy.engine').setLevel(logging.ERROR)
 
 
 def query_nominatim(query):
@@ -73,6 +78,7 @@ class Config(dict):
 class AssociationBot(object):
     bot = None
     engine = None
+    sessionmaker = None
     user_dict = ExpiringDict(300, 60 * 60 * 4)
 
     def __init__(self, config_path):
@@ -82,23 +88,48 @@ class AssociationBot(object):
     def init(self):
         self.bot = telebot.TeleBot(self.config['api_token'])
         self.set_handlers()
-        self.engine = get_engine('sqlite:///db.sqlite3')
+        # 'sqlite:///db.sqlite3'
+        self.engine = self.get_engine(self.config['db_url'])
+        self.sessionmaker = self.get_sessionmaker()
 
     def get_engine(self, url):
         return get_engine(url)
 
-    def get_session(self, engine=None):
+    def get_sessionmaker(self, engine=None):
         engine = engine or self.engine
-        return get_session(engine)
+        return get_sessionmaker(engine)
+
+    def get_session(self, sessionmaker=None, engine=None):
+        sessionmaker = sessionmaker or self.sessionmaker
+        engine = engine or self.engine
+        session = sessionmaker()
+        # session.configure(bind=engine)
+        return session
 
     def set_handlers(self, bot=None):
         bot = bot or self.bot
         bot.message_handler(func=lambda m: True, content_types=['new_chat_member'])(self.new_member)
         # bot.message_handler(func=lambda m: True, content_types=['location'])(self.user_location)
         bot.message_handler(commands=['register', 'start'])(self.command_register)
+        bot.message_handler(commands=['all'])(self.command_all)
+        # bot.message_handler(commands=['find'])(self.command_get_messages)
 
     def new_member(self, message):
         self.bot.reply_to(message, MESSAGE.format(user=get_name(message.new_chat_member)))
+
+    def command_all(self, message):
+        order = (LocationZone.country, LocationZone.state, LocationZone.county,
+                 LocationZone.city, LocationZone.city_district, LocationZone.town,
+                 LocationZone.suburb)
+        users = []
+        for user in self.get_session().query(User).join(LocationZone).order_by(*order):
+            users.append('@{} - {} - {} - {}'.format(user.tg_username, user.pgo_username, user.team,
+                                                     ' '.join([str(zone) for zone in user.location_zones])))
+        self.bot.send_message(message.from_user.id, '\n'.join(users))
+
+    def command_get_messages(self, message):
+        for update in self.bot.get_updates(99, 100, 20):
+            print(update)
 
     def command_register(self, message):
         print('Register:')
@@ -159,7 +190,8 @@ class AssociationBot(object):
                                     [address.get('suburb'), address.get('city_district'), address.get('town'),
                                      address.get('city')])))
         self.bot.reply_to(message, 'Información útil encontrada: {}, {} {} {}'.format(
-            zone, address.get('state_district', address.get('county', '-')), address['state'], address['country']
+            zone, address.get('state_district', address.get('county', '-')), address.get('state', '-'),
+            address['country']
         ))
         if not self.write_user_dict(message, 'address', address):
             return
@@ -193,23 +225,64 @@ class AssociationBot(object):
         self.bot.send_message(message.from_user.id, "Yo no tengo ni idea, ¡pero es un nombre muy bonito!")
         if not self.write_user_dict(message, 'nick', message.text):
             return
-        return self.step_finish(message)
+        return self.step_request_notifications(message)
 
     def step_request_notifications(self, message):
         markup = types.ReplyKeyboardMarkup(row_width=2)
-        for team in [TRUE_CHOICE, FALSE_CHOICE]:
-            markup.add(types.KeyboardButton(team))
-        markup.add(types.KeyboardButton(NO_TEAM))
+        for choice in [TRUE_CHOICE, FALSE_CHOICE]:
+            markup.add(types.KeyboardButton(choice))
         msg = self.bot.send_message(message.from_user.id, '¿Deseas recibir notificaciones cuando se registre '
-                                                          'alguien que viva cerca tuya?',
+                                                          'alguien que capture por tu misma zona?',
                                     reply_markup=markup)
-        self.bot.register_next_step_handler(msg, self.step_get_color)
+        self.bot.register_next_step_handler(msg, self.step_get_notifications)
+
+    def step_get_notifications(self, message):
+        try:
+            if not self.validate_choices(message, [TRUE_CHOICE, FALSE_CHOICE]):
+                return self.step_request_notifications(message)
+        except ValueError:
+            return
+        if not self.write_user_dict(message, 'notifications', True if message.text == TRUE_CHOICE else False):
+            return
+        self.step_finish(message)
 
     def step_finish(self, message):
         data = self.user_dict.get(message.chat.id)
         if not data:
             return self.bot.send_message(message.chat.id, '¡La sesión expiró antes de finalizar!')
-        print(data)
+        session = self.get_session()
+        tg_userid = message.from_user.id
+        tg_username = message.from_user.username
+        # AttributeError: 'sessionmaker' object has no attribute 'query'
+        user = session.query(User).filter_by(tg_userid=str(tg_userid)).first()
+        if user is None:
+            user = User()
+            user.tg_userid = tg_userid
+            location_zone = LocationZone()
+        else:
+            location_zone = session.query(LocationZone).filter_by(user=user).first()
+        user.tg_username = tg_username
+        user.pgo_username = data['nick']
+        user.team = data['color']
+        user.notifications = data['notifications']
+
+        location_zone.suburb = data['address'].get('suburb')
+        location_zone.town = data['address'].get('town')
+        location_zone.city_district = data['address'].get('city_district')
+        location_zone.city = data['address'].get('city')
+        location_zone.county = data['address'].get('county')
+        location_zone.state = data['address']['state']
+        location_zone.country = data['address']['country']
+
+        if not user.id:
+            session.add(user)
+            session.flush()
+            session.refresh(user)
+            location_zone.user = user
+            session.add(location_zone)
+        session.commit()
+        markup = types.ReplyKeyboardHide(selective=False)
+        self.bot.send_message(message.chat.id, '¡Ya hemos terminado!', reply_markup=markup)
 
     def step_exit(self, message):
         markup = types.ReplyKeyboardHide(selective=False)
@@ -239,4 +312,4 @@ class AssociationBot(object):
         return True
 
     def poll(self):
-        self.bot.polling(none_stop=False, interval=0)
+        self.bot.polling(none_stop=True, interval=0)
