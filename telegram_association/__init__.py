@@ -17,9 +17,8 @@ REVERSE_NOMINATIM_URL = '{}reverse'.format(NOMINATIM_URL)
 
 MAX_PUBLIC_RESULTS = 4
 MESSAGE = ("¡Te damos la bienvenida, {user}! ¡Te encuentras en un "
-           "grupo donde habitan unas criaturas llamadas humanos! Recuerda "
-           "saludarles y decirles de donde eres. \n"
-           "Formato: @NickTelegram NickPokémonGO Color Lugar")
+           "grupo donde habitan unas criaturas llamadas humanos!\n\n"
+           "Para comenzar tu aventura, pulsa en @profOakBot y escribe /register")
 
 ALIAS_REQUIRED_ERROR = ('Lo siento! necesito que te pongas previamente '
                         'un alias en Telegram para comenzar el registro.\n'
