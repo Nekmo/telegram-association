@@ -10,6 +10,7 @@ import telebot
 from expiringdict import ExpiringDict
 from sqlalchemy import or_
 from telebot import types
+from telebot.apihelper import ApiException
 
 from telegram_association.db import LocationZone
 from .db import get_engine, get_sessionmaker, User
@@ -20,7 +21,8 @@ REVERSE_NOMINATIM_URL = '{}reverse'.format(NOMINATIM_URL)
 MAX_PUBLIC_RESULTS = 4
 MESSAGE = ("¡Te damos la bienvenida, {user}! ¡Te encuentras en un "
            "grupo donde habitan unas criaturas llamadas humanos!\n\n"
-           "Para comenzar tu aventura, pulsa en @profOakBot y escribe /register")
+           "Para comenzar tu aventura, pulsa primero en @profOakBot "
+           "para abrir el chat y luego escribe /register")
 
 ALIAS_REQUIRED_ERROR = ('Lo siento! necesito que te pongas previamente '
                         'un alias en Telegram para comenzar el registro.\n'
@@ -149,7 +151,14 @@ class AssociationBot(object):
         if len(users) > MAX_PUBLIC_RESULTS and message.chat.type in ['group', 'supergroup']:
             self.bot.send_message(message.chat.id,
                                   'Hay demasiados resultados ({}). Se responde por privado.'.format(len(users)))
-        self.bot.send_message(to, '\n'.join(users) or 'Sin resultados.', disable_notification=True)
+        try:
+            self.bot.send_message(to, '\n'.join(users) or 'Sin resultados.', disable_notification=True)
+        except ApiException as e:
+            if e.result.status_code == 400:
+                self.bot.send_message(message.chat.id, 'Hay demasiados resultados. Excede el límite de Telegram.')
+            else:
+                self.bot.send_message(message.chat.id, 'Código de error Telegram: {}'.format(e.result.status_code))
+
 
     def command_get_messages(self, message):
         for update in self.bot.get_updates(99, 100, 20):
@@ -186,6 +195,9 @@ class AssociationBot(object):
             return self.step_exit(message)
         elif message.text == MANUAL_GEOLOCATION_CHOICE:
             return self.step_request_manual_location(message)
+        elif message.location is None:
+            self.bot.reply_to(message, 'La respuesta no es válida.')
+            return self.step_request_location(message)
         try:
             address = reverse_nominatim(message.location.latitude, message.location.longitude)
         except ValueError:
@@ -278,6 +290,9 @@ class AssociationBot(object):
         except Exception:
             import traceback
             traceback.print_exc(file=sys.stdout)
+            self.bot.send_message(message.from_user.id,
+                                  'Ha ocurrido un problema durante el registro. Por favor, contacta con '
+                                  '@nekmo para solicitar soporte.')
 
     def step_finish(self, message):
         data = self.user_dict.get(message.chat.id)
