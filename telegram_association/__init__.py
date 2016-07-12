@@ -292,7 +292,7 @@ class AssociationBot(object):
         location_zone.city_district = data['address'].get('city_district')
         location_zone.city = data['address'].get('city')
         location_zone.county = data['address'].get('county')
-        location_zone.state = data['address']['state']
+        location_zone.state = data['address'].get('state')
         location_zone.country = data['address']['country']
 
         if not user.id:
