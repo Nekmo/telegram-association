@@ -4,6 +4,8 @@ import logging
 import os
 import requests
 import shlex
+
+import sys
 import telebot
 from expiringdict import ExpiringDict
 from sqlalchemy import or_
@@ -93,6 +95,7 @@ class AssociationBot(object):
         # 'sqlite:///db.sqlite3'
         self.engine = self.get_engine(self.config['db_url'])
         self.sessionmaker = self.get_sessionmaker()
+        pass
 
     def get_engine(self, url):
         return get_engine(url)
@@ -197,6 +200,8 @@ class AssociationBot(object):
         self.bot.register_next_step_handler(msg, self.step_get_manual_location)
 
     def step_get_manual_location(self, message):
+        if not message.text:
+            return self.step_request_manual_location(message)
         try:
             data = query_nominatim(message.text)
         except ValueError:
@@ -243,6 +248,9 @@ class AssociationBot(object):
         self.bot.register_next_step_handler(msg, self.step_get_nick)
 
     def step_get_nick(self, message):
+        if not message.text:
+            self.bot.send_message(message, 'Este campo es obligatorio.')
+            return self.step_request_nick(message)
         self.bot.send_message(message.from_user.id, "Yo no tengo ni idea, ¡pero es un nombre muy bonito!")
         if not self.write_user_dict(message, 'nick', message.text):
             return
@@ -265,7 +273,11 @@ class AssociationBot(object):
             return
         if not self.write_user_dict(message, 'notifications', True if message.text == TRUE_CHOICE else False):
             return
-        self.step_finish(message)
+        try:
+            self.step_finish(message)
+        except Exception:
+            import traceback
+            traceback.print_exc(file=sys.stdout)
 
     def step_finish(self, message):
         data = self.user_dict.get(message.chat.id)
@@ -276,7 +288,9 @@ class AssociationBot(object):
         tg_username = message.from_user.username
         # AttributeError: 'sessionmaker' object has no attribute 'query'
         user = session.query(User).filter_by(tg_userid=tg_userid).first()
+        is_new = False
         if user is None:
+            is_new = True
             user = User()
             user.tg_userid = tg_userid
             location_zone = LocationZone()
@@ -295,7 +309,7 @@ class AssociationBot(object):
         location_zone.state = data['address'].get('state')
         location_zone.country = data['address']['country']
 
-        if not user.id:
+        if is_new:
             session.add(user)
             session.flush()
             session.refresh(user)
