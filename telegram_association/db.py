@@ -1,9 +1,18 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, create_engine, Sequence
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, create_engine, Sequence, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.sql import func
 
 Base = declarative_base()
+
+
+class Group(Base):
+    __tablename__ = 'group'
+
+    id = Column(Integer, Sequence('group_id_seq'), primary_key=True)
+    tg_chat_id = Column(String(length=24), unique=True, nullable=False)
+    tg_chat_name = Column(String(length=92), nullable=True)
+    search_filter = Column(Text, default='{}')
 
 
 class LocationZone(Base):

@@ -3,8 +3,10 @@ import logging
 
 import os
 import requests
+import shlex
 import telebot
 from expiringdict import ExpiringDict
+from sqlalchemy import or_
 from telebot import types
 
 from telegram_association.db import LocationZone
@@ -13,6 +15,7 @@ from .db import get_engine, get_sessionmaker, User
 NOMINATIM_URL = 'http://nominatim.openstreetmap.org/'
 REVERSE_NOMINATIM_URL = '{}reverse'.format(NOMINATIM_URL)
 
+MAX_PUBLIC_RESULTS = 4
 MESSAGE = ("¡Te damos la bienvenida, {user}! ¡Te encuentras en un "
            "grupo donde habitan unas criaturas llamadas humanos! Recuerda "
            "saludarles y decirles de donde eres. \n"
@@ -112,20 +115,39 @@ class AssociationBot(object):
         # bot.message_handler(func=lambda m: True, content_types=['location'])(self.user_location)
         bot.message_handler(commands=['register', 'start'])(self.command_register)
         bot.message_handler(commands=['all'])(self.command_all)
+        bot.message_handler(commands=['search'])(self.command_search)
         # bot.message_handler(commands=['find'])(self.command_get_messages)
 
     def new_member(self, message):
         self.bot.reply_to(message, MESSAGE.format(user=get_name(message.new_chat_member)))
 
-    def command_all(self, message):
+    def command_search(self, message):
+        query = message.text.split(' ', 1)  # Remove /command
+        if len(query) < 2:
+            return self.bot.send_message(message.chat.id, "Introduzca un término de búsqueda.")
+        words = shlex.split(query[1])
+        fields = [LocationZone.city, LocationZone.city_district, LocationZone.county, LocationZone.town,
+                  LocationZone.suburb, LocationZone.country, LocationZone.state, User.team, User.pgo_username,
+                  User.tg_username]
+        filter_ = [or_(*[getattr(field, 'ilike')('{}%'.format(word)) for field in fields]) for word in words]
+        queryset = self.get_session().query(User).filter(*filter_).join(LocationZone)
+        self.command_all(message, queryset)
+
+    def command_all(self, message, queryset=None):
         order = (LocationZone.country, LocationZone.state, LocationZone.county,
                  LocationZone.city, LocationZone.city_district, LocationZone.town,
                  LocationZone.suburb)
         users = []
-        for user in self.get_session().query(User).join(LocationZone).order_by(*order):
+        if queryset is None:
+            queryset = self.get_session().query(User).join(LocationZone)
+        for user in queryset.order_by(*order):
             users.append('@{} - {} - {} - {}'.format(user.tg_username, user.pgo_username, user.team,
                                                      ' '.join([str(zone) for zone in user.location_zones])))
-        self.bot.send_message(message.from_user.id, '\n'.join(users))
+        to = message.chat.id if len(users) <= MAX_PUBLIC_RESULTS else message.from_user.id
+        if len(users) > MAX_PUBLIC_RESULTS and message.chat.type in ['group', 'supergroup']:
+            self.bot.send_message(message.chat.id,
+                                  'Hay demasiados resultados ({}). Se responde por privado.'.format(len(users)))
+        self.bot.send_message(to, '\n'.join(users) or 'Sin resultados.', disable_notification=True)
 
     def command_get_messages(self, message):
         for update in self.bot.get_updates(99, 100, 20):
@@ -135,7 +157,7 @@ class AssociationBot(object):
         print('Register:')
         if not message.from_user.username:
             try:
-                return self.bot.reply_to(ALIAS_REQUIRED_ERROR, message)
+                return self.bot.reply_to(message, ALIAS_REQUIRED_ERROR)
             except AttributeError:
                 return
         self.user_dict[message.chat.id] = {}
