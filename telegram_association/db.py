@@ -52,7 +52,7 @@ User.location_zones = relationship("LocationZone", order_by=LocationZone.id, bac
 
 def get_engine(url=None):
     url = url or 'sqlite:///:memory:'
-    engine = create_engine(url, echo=True)
+    engine = create_engine(url)
     Base.metadata.create_all(engine)
     return engine
 
