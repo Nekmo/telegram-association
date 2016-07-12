@@ -314,7 +314,7 @@ class AssociationBot(object):
     def validate_choices(self, message, choices, valid_none_message=False):
         if message.text is None and valid_none_message:
             return True
-        if message.text.startswith('/'):
+        if message.text and message.text.startswith('/'):
             self.bot.reply_to(message, 'Se ha comenzado otro comando. ¡Hasta otra!')
             raise ValueError
         elif message.text not in choices:
