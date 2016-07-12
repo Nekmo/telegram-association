@@ -272,10 +272,10 @@ class AssociationBot(object):
         if not data:
             return self.bot.send_message(message.chat.id, '¡La sesión expiró antes de finalizar!')
         session = self.get_session()
-        tg_userid = message.from_user.id
+        tg_userid = str(message.from_user.id)
         tg_username = message.from_user.username
         # AttributeError: 'sessionmaker' object has no attribute 'query'
-        user = session.query(User).filter_by(tg_userid=str(tg_userid)).first()
+        user = session.query(User).filter_by(tg_userid=tg_userid).first()
         if user is None:
             user = User()
             user.tg_userid = tg_userid
