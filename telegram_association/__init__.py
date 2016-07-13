@@ -24,6 +24,10 @@ MESSAGE = ("¡Te damos la bienvenida, {user}! ¡Te encuentras en un "
            "Para comenzar tu aventura, pulsa primero en @profOakBot "
            "para abrir el chat y luego escribe /register")
 
+PEER_ERROR = ('¡Tienes que hablar conmigo por privado primero! '
+              'pulsa sobre mi nombre para iniciar una nueva conversación, y '
+              'ya entonces podrás ejecutar los comandos.')
+
 ALIAS_REQUIRED_ERROR = ('Lo siento! necesito que te pongas previamente '
                         'un alias en Telegram para comenzar el registro.\n'
                         'Android: http://bit.ly/29q58ex')
@@ -99,6 +103,14 @@ class AssociationBot(object):
         self.sessionmaker = self.get_sessionmaker()
         pass
 
+    def send_private(self, message, *args, **kwargs):
+        try:
+            return self.bot.send_message(message.from_user.id, *args, **kwargs)
+        except ApiException as e:
+            if e.result.status_code == 400 and 'PEER_ID_INVALID' in e.result.text:
+                return self.bot.send_message(message.chat.id, PEER_ERROR)
+            raise e
+
     def get_engine(self, url):
         return get_engine(url)
 
@@ -171,7 +183,8 @@ class AssociationBot(object):
                 return self.bot.reply_to(message, ALIAS_REQUIRED_ERROR)
             except AttributeError:
                 return
-        self.user_dict[message.chat.id] = {}
+        # TODO: self.user_dict[message.chat.id] = {}
+        self.user_dict[message.from_user.id] = {}
         self.step_request_location(message)
 
     def step_request_location(self, message):
@@ -179,7 +192,7 @@ class AssociationBot(object):
         markup.add(types.KeyboardButton(GEOLOCATION_CHOICE, request_location=True))
         markup.add(types.KeyboardButton(MANUAL_GEOLOCATION_CHOICE))
         markup.add(types.KeyboardButton(EXIT_CHOICE))
-        msg = self.bot.send_message(message.from_user.id, GEOLOCATION_REQUIRED, reply_markup=markup)
+        msg = self.send_private(message, GEOLOCATION_REQUIRED, reply_markup=markup)
         self.bot.register_next_step_handler(msg, self.step_get_location)
 
     def step_get_location(self, message):
@@ -289,13 +302,15 @@ class AssociationBot(object):
             self.step_finish(message)
         except Exception:
             import traceback
+            print('Fallo en registro.')
             traceback.print_exc(file=sys.stdout)
+            print(locals())
             self.bot.send_message(message.from_user.id,
                                   'Ha ocurrido un problema durante el registro. Por favor, contacta con '
                                   '@nekmo para solicitar soporte.')
 
     def step_finish(self, message):
-        data = self.user_dict.get(message.chat.id)
+        data = self.user_dict.get(message.from_user.id)
         if not data:
             return self.bot.send_message(message.chat.id, '¡La sesión expiró antes de finalizar!')
         session = self.get_session()
@@ -352,13 +367,13 @@ class AssociationBot(object):
         return True
 
     def write_user_dict(self, message, key, value):
-        if not message.chat.id in self.user_dict:
+        if not message.from_user.id in self.user_dict:
             try:
                 self.bot.send_message(message.chat.id, 'Sesión expirada. Finalizando.')
             except Exception:
                 pass
             return False
-        self.user_dict[message.chat.id][key] = value
+        self.user_dict[message.from_user.id][key] = value
         return True
 
     def poll(self):
