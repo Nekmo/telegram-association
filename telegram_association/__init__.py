@@ -2,6 +2,8 @@ import json
 import logging
 
 import os
+import traceback
+
 import requests
 import shlex
 
@@ -156,9 +158,14 @@ class AssociationBot(object):
         users = []
         if queryset is None:
             queryset = self.get_session().query(User).join(LocationZone)
-        for user in queryset.order_by(*order):
-            users.append('@{} - {} - {} - {}'.format(user.tg_username, user.pgo_username, user.team,
-                                                     ' '.join([str(zone) for zone in user.location_zones])))
+        try:
+            for user in queryset.order_by(*order):
+                users.append('@{} - {} - {} - {}'.format(user.tg_username, user.pgo_username, user.team,
+                                                         ' '.join([str(zone) for zone in user.location_zones])))
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            return self.bot.send_message(message.chat.id, 'Error al realizar la búsqueda. Inténtelo más tarde. '
+                                                          'Si el error persiste, contacte a @nekmo')
         to = message.chat.id if len(users) <= MAX_PUBLIC_RESULTS else message.from_user.id
         if len(users) > MAX_PUBLIC_RESULTS and message.chat.type in ['group', 'supergroup']:
             self.bot.send_message(message.chat.id,
