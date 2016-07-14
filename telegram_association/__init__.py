@@ -311,7 +311,6 @@ class AssociationBot(object):
             import traceback
             print('Fallo en registro.')
             traceback.print_exc(file=sys.stdout)
-            print(locals())
             self.bot.send_message(message.from_user.id,
                                   'Ha ocurrido un problema durante el registro. Por favor, contacta con '
                                   '@nekmo para solicitar soporte.')
@@ -348,7 +347,13 @@ class AssociationBot(object):
 
         if is_new:
             session.add(user)
-            session.flush()
+            try:
+                session.flush()
+            except Exception:
+                # TODO: No sé si de verdad necesito el flush, pero en ocasiones falla.
+                # puede debeser a fallos con el threading. Se prueba a continuar a pesar
+                # del error.
+                pass
             session.refresh(user)
             location_zone.user = user
             session.add(location_zone)
