@@ -185,6 +185,10 @@ class AssociationBot(object):
 
     def command_register(self, message):
         print('Register:')
+        if message.chat.type != 'private':
+            return self.bot.reply_to(message, '¡Este comando debe usarse por privado! Pulsa sobre mi foto (avatar) '
+                                              'para comenzar una conversación privada conmigo, y ejecuta de nuevo '
+                                              'el comando.')
         if not message.from_user.username:
             try:
                 return self.bot.reply_to(message, ALIAS_REQUIRED_ERROR)
