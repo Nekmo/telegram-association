@@ -186,8 +186,8 @@ class AssociationBot(object):
     def command_register(self, message):
         print('Register:')
         if message.chat.type != 'private':
-            return self.bot.reply_to(message, '¡Este comando debe usarse por privado! Pulsa sobre mi foto (avatar) '
-                                              'para comenzar una conversación privada conmigo, y ejecuta de nuevo '
+            return self.bot.reply_to(message, '¡Este comando debe usarse por privado! Pulsa aquí -> @profOakBot <- '
+                                              'para comenzar una conversación privada conmigo, y vuelve a ejecutar '
                                               'el comando.')
         if not message.from_user.username:
             try:
