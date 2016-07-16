@@ -190,7 +190,6 @@ class AssociationBot(object):
                 return self.bot.reply_to(message, ALIAS_REQUIRED_ERROR)
             except AttributeError:
                 return
-        # TODO: self.user_dict[message.chat.id] = {}
         self.user_dict[message.from_user.id] = {}
         self.step_request_location(message)
 
