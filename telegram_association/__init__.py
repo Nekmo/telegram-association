@@ -140,14 +140,14 @@ class AssociationBot(object):
         self.bot.reply_to(message, MESSAGE.format(user=get_name(message.new_chat_member)))
 
     def command_search(self, message):
+        query = message.text.split(' ', 1)  # Remove /command
+        if len(query) < 2:
+            return self.bot.send_message(message.chat.id, "Introduzca un término de búsqueda.")
         try:
-            query = message.text.split(' ', 1)  # Remove /command
+            words = shlex.split(query[1])
         except ValueError:
             return self.bot.send_message(message.chat.id, '¡Comprueba que no haya comillas sin cerrar en la '
                                                           'búsqueda y que la sintaxis es correcta!')
-        if len(query) < 2:
-            return self.bot.send_message(message.chat.id, "Introduzca un término de búsqueda.")
-        words = shlex.split(query[1])
         fields = [LocationZone.city, LocationZone.city_district, LocationZone.county, LocationZone.town,
                   LocationZone.suburb, LocationZone.country, LocationZone.state, User.team, User.pgo_username,
                   User.tg_username]
