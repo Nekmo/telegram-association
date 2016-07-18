@@ -52,4 +52,4 @@ class Search(Command):
         if len(users) > MAX_PUBLIC_RESULTS:
             self.bot.send_message(message.chat.id, paste(body) or 'Error desconocido al usar Paste')
         else:
-            self.bot.send_message(to, '\n'.join(users), disable_notification=True)
+            self.bot.send_message(to, body, disable_notification=True)
