@@ -52,10 +52,12 @@ class AssociationBot(object):
         return session
 
     def set_handlers(self):
-        self.set_handler(self.new_member, func=lambda m: True, content_types=['new_chat_member'])
+        # TODO:
+        # self.set_handler(self.new_member, func=lambda m: True, content_types=['new_chat_member'])
         # self.set_handler(self.command_register, commands=['register', 'start'])
         # self.set_handler(self.command_all, commands=['all'])
         # self.set_handler(self.command_search, commands=['search'])
+        pass
 
     def set_handler(self, command, *args, **kwargs):
         return self.bot.message_handler(*args, **kwargs)(securize_message(command))
