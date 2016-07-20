@@ -24,5 +24,5 @@ class Help(Command):
 
     def start(self, message):
         if message.chat.type != 'private':
-            return self.bot.send_message(message.from_user.id, REQUIRED_PRIVATE)
+            return self.bot.send_message(message.chat.id, REQUIRED_PRIVATE)
         self.bot.send_message(message.from_user.id, HELP)
