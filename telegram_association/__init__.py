@@ -54,7 +54,7 @@ class AssociationBot(object):
 
     def set_handlers(self):
         # TODO:
-        # self.set_handler(self.new_member, func=lambda m: True, content_types=['new_chat_member'])
+        self.set_handler(self.new_member, func=lambda m: True, content_types=['new_chat_member'])
         # self.set_handler(self.command_register, commands=['register', 'start'])
         # self.set_handler(self.command_all, commands=['all'])
         # self.set_handler(self.command_search, commands=['search'])
@@ -64,6 +64,8 @@ class AssociationBot(object):
         return self.bot.message_handler(*args, **kwargs)(securize_message(command))
 
     def new_member(self, message):
+        if getattr(message.chat, 'username', None) != 'PokemonGoMalaga':
+            return
         self.bot.reply_to(message, MESSAGE.format(user=get_name(message.new_chat_member)))
 
     def poll(self):
