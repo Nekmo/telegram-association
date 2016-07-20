@@ -2,6 +2,7 @@ import telebot
 
 from telegram_association.config import Config
 from telegram_association.db import LocationZone
+from telegram_association.help import Help
 from telegram_association.register import Register
 from telegram_association.results import Search
 from telegram_association.utils.telegram import securize_message, get_name
@@ -17,7 +18,7 @@ class AssociationBot(object):
     bot = None
     engine = None
     sessionmaker = None
-    commands = (Register, Search)
+    commands = (Register, Search, Help)
 
     def __init__(self, config_path):
         self.config = Config(config_path)
