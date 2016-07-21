@@ -27,7 +27,7 @@ class Search(Command):
         fields = [LocationZone.city, LocationZone.city_district, LocationZone.county, LocationZone.town,
                   LocationZone.suburb, LocationZone.country, LocationZone.state, User.team, User.pgo_username,
                   User.tg_username]
-        filter_ = [or_(*[getattr(field, 'ilike')('{}%'.format(word)) for field in fields]) for word in words]
+        filter_ = [or_(*[getattr(field, 'ilike')('%{}%'.format(word)) for field in fields]) for word in words]
         queryset = self.get_session().query(User).filter(*filter_).join(LocationZone)
         self.command_all(message, queryset)
 
