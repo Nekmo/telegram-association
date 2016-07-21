@@ -22,7 +22,7 @@ TYPE_TRANSLATES = {
     'volador': 'flying',
     'eléctrico': 'electric',
     'agua': 'water',
-    'acero': 'stell',
+    'acero': 'steel',
     'bicho': 'bug',
     'dragón': 'dragon',
     'fantasma': 'ghost',
@@ -38,9 +38,9 @@ TRANSLATES = {
     'half_damage_from': '1/2 daño por',
     'no_damage_from': 'no daño por',
     'half_damage_to': '1/2 daño a',
-    'double_damage_from': 'x2 daño a',
+    'double_damage_from': 'x2 daño por',
     'no_damage_to': 'no daño a',
-    'double_damage_to': '2x daño a',
+    'double_damage_to': 'x2 daño a',
 }
 
 API_URL = 'http://pokeapi.co/api/v2/{type}/{value}'
