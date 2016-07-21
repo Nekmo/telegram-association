@@ -6,19 +6,15 @@ from telegram_association.help import Help
 from telegram_association.register import Register
 from telegram_association.results import Search
 from telegram_association.utils.telegram import securize_message, get_name
+from telegram_association.welcome import Welcome
 from .db import get_engine, get_sessionmaker, User
-
-MESSAGE = ("¡Te damos la bienvenida, {user}! ¡Te encuentras en un "
-           "grupo donde habitan unas criaturas llamadas humanos!\n\n"
-           "Para comenzar tu aventura, pulsa primero en @profOakBot "
-           "para abrir el chat y luego escribe /register")
 
 
 class AssociationBot(object):
     bot = None
     engine = None
     sessionmaker = None
-    commands = (Register, Search, Help)
+    commands = (Register, Search, Help, Welcome)
 
     def __init__(self, config_path):
         self.config = Config(config_path)
@@ -54,7 +50,7 @@ class AssociationBot(object):
 
     def set_handlers(self):
         # TODO:
-        self.set_handler(self.new_member, func=lambda m: True, content_types=['new_chat_member'])
+        # self.set_handler(self.new_member, func=lambda m: True, content_types=['new_chat_member'])
         # self.set_handler(self.command_register, commands=['register', 'start'])
         # self.set_handler(self.command_all, commands=['all'])
         # self.set_handler(self.command_search, commands=['search'])
@@ -63,10 +59,6 @@ class AssociationBot(object):
     def set_handler(self, command, *args, **kwargs):
         return self.bot.message_handler(*args, **kwargs)(securize_message(command))
 
-    def new_member(self, message):
-        if getattr(message.chat, 'username', None) != 'PokemonGoMalaga':
-            return
-        self.bot.reply_to(message, MESSAGE.format(user=get_name(message.new_chat_member)))
 
     def poll(self):
         self.bot.polling(none_stop=True, interval=0)

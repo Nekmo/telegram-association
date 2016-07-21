@@ -132,7 +132,7 @@ class Register(Assistant):
 
     def step_get_nick(self, message):
         if not message.text:
-            self.bot.send_message(message, 'Este campo es obligatorio.')
+            self.bot.send_message(message.from_user.id, 'Este campo es obligatorio.')
             return self.step_request_nick(message)
         self.bot.send_message(message.from_user.id, "Yo no tengo ni idea, ¡pero es un nombre muy bonito!")
         if not self.write_user_dict(message, 'nick', message.text):
@@ -217,24 +217,3 @@ class Register(Assistant):
         self.bot.send_message(message.from_user.id, "{} huyó del combate con lágrimas en los ojos.".format(
             get_name(message.from_user)
         ), reply_markup=markup)
-
-    def validate_choices(self, message, choices, valid_none_message=False):
-        if message.text is None and valid_none_message:
-            return True
-        if message.text and message.text.startswith('/'):
-            self.bot.reply_to(message, 'Se ha comenzado otro comando. ¡Hasta otra!')
-            raise ValueError
-        elif message.text not in choices:
-            self.bot.reply_to(message, '¡No puedes elegir esa opción!')
-            return False
-        return True
-
-    def write_user_dict(self, message, key, value):
-        if message.from_user.id not in self.user_dict:
-            try:
-                self.bot.send_message(message.chat.id, 'Sesión expirada. Finalizando.')
-            except Exception:
-                pass
-            return False
-        self.user_dict[message.from_user.id][key] = value
-        return True

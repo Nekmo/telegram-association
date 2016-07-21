@@ -10,9 +10,11 @@ class Group(Base):
     __tablename__ = 'group'
 
     id = Column(Integer, Sequence('group_id_seq'), primary_key=True)
-    tg_chat_id = Column(String(length=24), unique=True, nullable=False)
+    tg_chat_id = Column(String(length=32), unique=True, nullable=False)
     tg_chat_name = Column(String(length=92), nullable=True)
     search_filter = Column(Text, default='{}')
+    welcome_message = Column(Text, default='')
+    welcome_enabled = Column(Boolean, default=True)
 
 
 class LocationZone(Base):
