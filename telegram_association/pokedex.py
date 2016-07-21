@@ -95,7 +95,7 @@ class Pokedex(Command):
             data = requests.get(API_URL.format(type=type, value=value)).json()
         except Exception:
             self.bot.send_message(message.chat.id, ERROR)
-            raise ApiException
+            raise ApiException(message, lambda x: x, False)
         for req in required:
             if req in data:
                 cache[value] = data
