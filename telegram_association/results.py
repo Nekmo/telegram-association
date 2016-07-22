@@ -3,7 +3,7 @@ import shlex
 import sys
 import traceback
 
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 
 from telegram_association.db import LocationZone, User
 from telegram_association.commands import Command
@@ -53,3 +53,19 @@ class Search(Command):
             self.bot.send_message(message.chat.id, paste(body) or 'Error desconocido al usar Paste')
         else:
             self.bot.send_message(to, body, disable_notification=True)
+
+
+class Stats(Command):
+    commands = ('stats',)
+
+    def start(self, message):
+        session = self.get_session()
+        total = session.query(func.count(User.id)).first()[0]
+        teams = session.query('team', func.count(User.id)).group_by('team').all()
+        teams = ['<b>{}</b> {}'.format(x[0] or 'NS/NC', x[1]) for x in sorted(teams, key=lambda x: x[1], reverse=True)]
+        locations = session.query('county',  func.count(LocationZone.id).
+                                  label('total')).group_by('country', 'county').order_by('total DESC')
+        first_location = locations.first() or [('¡Nada!', 0)]
+        body = 'Total: {}. {}. Mayor región: <i>{}</i> ({})'.format(total, ', '.join(teams), first_location[0],
+                                                             first_location[1])
+        self.bot.send_message(message.chat.id, body, parse_mode='HTML')

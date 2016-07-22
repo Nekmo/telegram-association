@@ -5,7 +5,7 @@ from telegram_association.db import LocationZone
 from telegram_association.help import Help
 from telegram_association.pokedex import Pokedex
 from telegram_association.register import Register
-from telegram_association.results import Search
+from telegram_association.results import Search, Stats
 from telegram_association.utils.telegram import securize_message, get_name
 from telegram_association.welcome import Welcome
 from .db import get_engine, get_sessionmaker, User
@@ -15,7 +15,7 @@ class AssociationBot(object):
     bot = None
     engine = None
     sessionmaker = None
-    commands = (Register, Search, Help, Welcome, Pokedex)
+    commands = (Register, Search, Help, Welcome, Pokedex, Stats)
 
     def __init__(self, config_path):
         self.config = Config(config_path)
