@@ -1,10 +1,12 @@
+import sys
 from expiringdict import ExpiringDict
 from telebot.apihelper import ApiException
-
+import traceback
 
 PEER_ERROR = ('¡Tienes que hablar conmigo por privado primero! '
               'pulsa sobre mi nombre para iniciar una nueva conversación, y '
               'ya entonces podrás ejecutar los comandos.')
+CREATOR = '@nekmo'
 
 
 class Command(object):
@@ -24,7 +26,19 @@ class Command(object):
             raise e
 
     def set_handler(self):
-        self.main.set_handler(self.start, commands=self.commands)
+        def catch_command_error(fn):
+            def wrapper(message, *args, **kwargs):
+                try:
+                    return fn(message, *args, **kwargs)
+                except Exception as e:
+                    print('Ha ocurrido un error! Message: {} Exception: {}'.format(message, e))
+                    traceback.print_exc(file=sys.stdout)
+                    self.bot.send_message(message.chat.id, '¡Nadie es perfecto! El comando ha fallado. Vuelve a '
+                                                           'intentarlo más tarde. Si sigue dando problemas, '
+                                                           'comunícate con {}. Error: {}'.format(CREATOR, e))
+            return wrapper
+
+        self.main.set_handler(catch_command_error(self.start), commands=self.commands)
 
     def start(self, message):
         raise NotImplementedError
