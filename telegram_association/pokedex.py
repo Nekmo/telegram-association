@@ -1,3 +1,7 @@
+import json
+import os
+from urllib import parse
+
 import requests
 from expiringdict import ExpiringDict
 from telebot.apihelper import ApiException
@@ -48,6 +52,8 @@ API_URL = 'http://pokeapi.co/api/v2/{type}/{value}'
 
 cache = ExpiringDict(300, 60 * 60 * 18)
 
+CACHE_DIR = os.path.expanduser('~/.local/var/cache/pokedex')
+
 
 class Pokedex(Command):
     commands = ('pokedex',)
@@ -55,8 +61,11 @@ class Pokedex(Command):
     def start(self, message):
         query = message.text.split(' ', 1)  # Remove /command
         if len(query) < 2:
-            return self.bot.send_message(message.chat.id, "Introduzca un término de búsqueda.")
+            return self.bot.send_message(message.chat.id, "Debes ejecutar el comando con el término de búsqueda. "
+                                                          "Por ejemplo, /pokedex pikachu")
         query = unidecode(query[1].lower())
+        if not query:
+            return self.bot.send_message(message.chat.id, '¡Los términos de búsqueda son incorrectos!')
         if query in TYPE_TRANSLATES or query in TYPE_TRANSLATES.values():
             query = TYPE_TRANSLATES.get(query, query)
             return self.search_type(message, query)
@@ -66,7 +75,6 @@ class Pokedex(Command):
         data = self.request(message, 'type', name, ['damage_relations'])
         if data.get('damage_relations') is None:
             return self.bot.send_message(message.chat.id, ERROR)
-        cache[name] = data
         damage_relations = {key: ', '.join([TYPE_TRANSLATES_REVERSE.get(t['name'], t['name']) for t in value])
                             for key, value in data['damage_relations'].items() if value}
         damage_relations = ['<b>{}</b>: {}'.format(TRANSLATES.get(key, key), value)
@@ -77,11 +85,9 @@ class Pokedex(Command):
     def search_pokemon(self, message, name_or_id):
         data = self.request(message, 'pokemon', name_or_id, ['detail', 'id'])
         if data.get('detail') == 'Not found.':
-            cache[name_or_id] = data
             return self.bot.send_message(message.chat.id, '¡No hay ningún pokémon con ese nombre en la pokédex!')
         if data.get('id') is None:
             return self.bot.send_message(message.chat.id, ERROR)
-        cache[name_or_id] = data
         types = [TYPE_TRANSLATES_REVERSE.get(t['type']['name'], t['type']['name']) for t in data['types']]
         body = POKEMON_BODY.format(id=data['id'], name=data['name'], weight=data.get('weight', 0) / 10,
                                    height=data.get('height', 0) / 10,
@@ -89,8 +95,9 @@ class Pokedex(Command):
         self.bot.send_message(message.chat.id, body, parse_mode='html')
 
     def request(self, message, type, value, required):
-        if value in cache:
-            return cache[value]
+        cache_data = self.load_cache(value)
+        if cache_data:
+            return cache_data
         try:
             data = requests.get(API_URL.format(type=type, value=value)).json()
         except Exception:
@@ -98,7 +105,23 @@ class Pokedex(Command):
             raise ApiException(message, lambda x: x, False)
         for req in required:
             if req in data:
-                cache[value] = data
+                self.save_cache(value, data)
                 break
         return data
 
+    def load_cache(self, query):
+        path = self.get_cache_path(query)
+        if os.path.lexists(path):
+            return json.load(open(path, 'r'))
+        return None
+
+    def save_cache(self, query, data):
+        path = self.get_cache_path(query)
+        json.dump(data, open(path, 'w'))
+
+    @staticmethod
+    def get_cache_path(query):
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        name = '{}.json'.format(parse.quote_plus(query))
+        path = os.path.join(CACHE_DIR, name)
+        return path
