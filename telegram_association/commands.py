@@ -14,6 +14,7 @@ class Command(object):
 
     def __init__(self, main):
         self.main = main
+        self.config = self.main.config
         self.bot = main.bot
         self.get_session = main.get_session
 
@@ -25,6 +26,9 @@ class Command(object):
                 return self.bot.send_message(message.chat.id, PEER_ERROR)
             raise e
 
+    def send_public(self, message, *args, **kwargs):
+        self.bot.send_message(message.chat.id, *args, **kwargs)
+
     def set_handler(self):
         def catch_command_error(fn):
             def wrapper(message, *args, **kwargs):
@@ -33,12 +37,27 @@ class Command(object):
                 except Exception as e:
                     print('Ha ocurrido un error! Message: {} Exception: {}'.format(message, e))
                     traceback.print_exc(file=sys.stdout)
-                    self.bot.send_message(message.chat.id, '¡Nadie es perfecto! El comando ha fallado. Vuelve a '
-                                                           'intentarlo más tarde. Si sigue dando problemas, '
-                                                           'comunícate con {}. Error: {}'.format(CREATOR, e))
+                    self.try_send_private(message, '¡Nadie es perfecto! El comando ha fallado. Vuelve a '
+                                                    'intentarlo más tarde. Si sigue dando problemas, '
+                                                    'comunícate con {}. Error: {}'.format(CREATOR, e))
             return wrapper
 
-        self.main.set_handler(catch_command_error(self.start), commands=self.commands)
+        def command_secorator(fn):
+            def wrapper(message, *args, **kwargs):
+                cmd = message.text.split(' ', 1)[0]
+                if '@' in cmd and cmd.split('@', 1)[1].lower() != self.config['bot_alias'].lower():
+                    # Prevent execute commands to other bots
+                    return
+                return fn(message, *args, **kwargs)
+            return wrapper
+
+        self.main.set_handler(catch_command_error(command_secorator(self.start)), commands=self.commands)
+
+    def try_send_private(self, message, body, *args, **kwargs):
+        try:
+            return self.bot.send_message(message.from_user.id, body, *args, **kwargs), True
+        except ApiException:
+            return self.bot.send_message(message.chat.id, body, *args, **kwargs), False
 
     def start(self, message):
         raise NotImplementedError
