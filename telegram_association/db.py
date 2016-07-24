@@ -61,3 +61,7 @@ def get_engine(url=None):
 
 def get_sessionmaker(engine):
     return sessionmaker(bind=engine)
+
+
+class WikiEntry(Base):
+    __tablename__ = 'wiki_entries'
