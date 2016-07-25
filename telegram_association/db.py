@@ -65,3 +65,38 @@ def get_sessionmaker(engine):
 
 class WikiEntry(Base):
     __tablename__ = 'wiki_entries'
+
+    id = Column(Integer, Sequence('wiki_entry_id_seq'), primary_key=True)
+    tg_userid = Column(String(length=24), nullable=False)
+    text = Column(Text, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    wiki_id = Column(Integer, ForeignKey('wikies.id'), nullable=False)
+    wiki = relationship("Wiki", back_populates='entries')
+
+
+class WikiName(Base):
+    __tablename__ = 'wiki_names'
+
+    id = Column(Integer, Sequence('wiki_entry_id_seq'), primary_key=True)
+    tg_userid = Column(String(length=24), nullable=False)
+
+    index_name = Column(String(length=100), nullable=False)
+    print_name = Column(String(length=100), nullable=False)
+    is_enabled = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    wiki_id = Column(Integer, ForeignKey('wikies.id'), nullable=False)
+    wiki = relationship("Wiki", back_populates='entries')
+
+
+class Wiki(Base):
+    __tablename__ = 'wikies'
+
+    id = Column(Integer, Sequence('wiki_id_seq'), primary_key=True)
+
+    enabled_id = Column(Integer, ForeignKey('wiki_entries.id'), nullable=False)
+    enabled = relationship("WikiEntry")
+
+
+Wiki.entries = relationship("WikiEntry", order_by=WikiEntry.id, back_populates="wiki")
