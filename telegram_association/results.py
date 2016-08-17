@@ -40,9 +40,11 @@ class Search(Command):
             queryset = self.get_session().query(User).join(LocationZone)
         try:
             for user in queryset.order_by(*order):
-                users.append('http://telegram.me/{} - {} - {} - {}'.format(
-                    user.tg_username, user.pgo_username, user.team, ' '.join([str(zone) for zone in
-                                                                              user.location_zones])))
+                # users.append('http://telegram.me/{} - {} - {} - {}'.format(
+                #     user.tg_username, user.pgo_username, user.team, ' '.join([str(zone) for zone in
+                #                                                               user.location_zones])))
+                users.append('http://telegram.me/{} - ****** - {} - {}'.format(
+                    user.tg_username, user.team, ' '.join([str(zone) for zone in user.location_zones])))
         except Exception:
             traceback.print_exc(file=sys.stdout)
             return self.bot.send_message(message.chat.id, 'Error al realizar la búsqueda. Inténtelo más tarde. '
